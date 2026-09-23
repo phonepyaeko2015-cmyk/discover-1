@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discover</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #00f2fe;
+      --accent-hover: #4facfe;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: #111827;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(45deg, var(--accent), #9b51e0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      width: 100%;
+    }
+
+    /* Grid Layout for Hub */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .game-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .game-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 242, 254, 0.2);
+    }
+
+    .game-card .preview {
+      height: 160px;
+      background: #090d16;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+    }
+
+    .game-card .info {
+      padding: 1rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .game-card h3 { margin-bottom: 0.5rem; }
+    .game-card p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+    .play-btn {
+      background: linear-gradient(45deg, var(--accent), var(--accent-hover));
+      border: none;
+      color: #000;
+      font-weight: bold;
+      padding: 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    /* Game Stage Modal/Overlay */
+    .game-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-container {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    canvas {
+      background: #000;
+      border-radius: 8px;
+      border: 2px solid #334155;
+    }
+
+    .controls-hint {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🕹️ Discover</h1>
+    <span style="color: var(--text-muted)">Select a game to play</span>
+  </header>
+
+  <div class="container">
+    <div class="game-grid">
+      
+      <!-- Geometry Dash Card -->
+      <div class="game-card" onclick="openGame('dash')">
+        <div class="preview">🟦</div>
+        <div class="info">
+          <div>
+            <h3>Geometry Runner</h3>
+            <p>Rhythm runner! Jump over obstacles and survive as long as you can.</p>
+          </div>
+          <button class="play-btn">Play Now</button>
+        </div>
+      </div>
+
+      <!-- Snake Card -->
+      <div class="game-card" onclick="openGame('snake')">
+        <div class="preview">🐍</div>
+        <div class="info">
+          <div>
+            <h3>Classic Snake</h3>
+            <p>Eat food, grow longer, and avoid running into walls or yourself.</p>
+          </div>
+          <button class="play-btn">Play Now</button>
+        </div>
+      </div>
+
+      <!-- Pong Card -->
+      <div class="game-card" onclick="openGame('pong')">
+        <div class="preview">🏓</div>
+        <div class="info">
+          <div>
+            <h3>Retro Pong</h3>
+            <p>Classic 1v1 paddle game against an AI opponent.</p>
+          </div>
+          <button class="play-btn">Play Now</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Game Player Overlay -->
+  <div class="game-modal" id="gameModal">
+    <div class="game-container">
+      <button class="close-btn" onclick="closeGame()">&times;</button>
+      <h2 id="modalTitle">Game</h2>
+      <canvas id="gameCanvas" width="600" height="300"></canvas>
+      <div class="controls-hint" id="controlsHint">Use SPACE to jump</div>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById('gameModal');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const modalTitle = document.getElementById('modalTitle');
+    const controlsHint = document.getElementById('controlsHint');
+
+    let activeLoop = null;
+    let currentGame = null;
+
+    function openGame(gameType) {
+      modal.style.display = 'flex';
+      currentGame = gameType;
+      window.addEventListener('keydown', handleKeyInput);
+
+      if (gameType === 'dash') {
+        modalTitle.innerText = 'Geometry Runner';
+        controlsHint.innerText = 'Press SPACE or UP ARROW to jump';
+        startDash();
+      } else if (gameType === 'snake') {
+        modalTitle.innerText = 'Classic Snake';
+        controlsHint.innerText = 'Use ARROW KEYS to move';
+        startSnake();
+      } else if (gameType === 'pong') {
+        modalTitle.innerText = 'Retro Pong';
+        controlsHint.innerText = 'Move mouse UP/DOWN to control paddle';
+        startPong();
+      }
+    }
+
+    function closeGame() {
+      modal.style.display = 'none';
+      if (activeLoop) cancelAnimationFrame(activeLoop);
+      if (snakeInterval) clearInterval(snakeInterval);
+      window.removeEventListener('keydown', handleKeyInput);
+      canvas.removeEventListener('mousemove', updatePongPaddle);
+    }
+
+    let handleKeyInput = () => {};
+
+    /* --------------------------------------------------
+       1. GEOMETRY RUNNER GAME
+    -------------------------------------------------- */
+    function startDash() {
+      let player = { x: 50, y: 220, size: 30, dy: 0, gravity: 0.8, jumpPower: -12, grounded: true };
+      let obstacles = [];
+      let frame = 0;
+      let score = 0;
+
+      handleKeyInput = (e) => {
+        if ((e.code === 'Space' || e.code === 'ArrowUp') && player.grounded) {
+          player.dy = player.jumpPower;
+          player.grounded = false;
+        }
+      };
+
+      function loop() {
+        frame++;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Ground
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(0, 250, canvas.width, 50);
+
+        // Player physics
+        player.dy += player.gravity;
+        player.y += player.dy;
+
+        if (player.y >= 220) {
+          player.y = 220;
+          player.dy = 0;
+          player.grounded = true;
+        }
+
+        // Draw Player
+        ctx.fillStyle = '#00f2fe';
+        ctx.fillRect(player.x, player.y, player.size, player.size);
+
+        // Spawn Spikes
+        if (frame % 90 === 0) {
+          obstacles.push({ x: canvas.width, size: 25 });
+        }
+
+        // Draw and Move Spikes
+        ctx.fillStyle = '#ff4757';
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          let obs = obstacles[i];
+          obs.x -= 5;
+
+          // Draw Spike Triangle
+          ctx.beginPath();
+          ctx.moveTo(obs.x, 250);
+          ctx.lineTo(obs.x + obs.size / 2, 250 - obs.size);
+          ctx.lineTo(obs.x + obs.size, 250);
+          ctx.fill();
+
+          // Collision Check
+          if (
+            player.x < obs.x + obs.size &&
+            player.x + player.size > obs.x &&
+            player.y + player.size > 250 - obs.size
+          ) {
+            alert(`Game Over! Score: ${score}`);
+            closeGame();
+            return;
+          }
+
+          if (obs.x < -20) obstacles.splice(i, 1);
+        }
+
+        score++;
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`Score: ${score}`, 10, 25);
+
+        activeLoop = requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    /* --------------------------------------------------
+       2. SNAKE GAME
+    -------------------------------------------------- */
+    let snakeInterval = null;
+    function startSnake() {
+      const gridSize = 20;
+      const tileCount = canvas.width / gridSize;
+      let snake = [{ x: 10, y: 10 }];
+      let food = { x: 15, y: 10 };
+      let dx = 1, dy = 0;
+
+      handleKeyInput = (e) => {
+        if (e.code === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+        if (e.code === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+        if (e.code === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+        if (e.code === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+      };
+
+      snakeInterval = setInterval(() => {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // Wall hit check
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= canvas.height / gridSize) {
+          alert('Game Over!');
+          closeGame();
+          return;
+        }
+
+        snake.unshift(head);
+
+        // Food hit check
+        if (head.x === food.x && head.y === food.y) {
+          food = {
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * (canvas.height / gridSize))
+          };
+        } else {
+          snake.pop();
+        }
+
+        // Clear Screen
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Food
+        ctx.fillStyle = '#ff4757';
+        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+        // Draw Snake
+        ctx.fillStyle = '#2ed573';
+        snake.forEach(part => {
+          ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+        });
+      }, 100);
+    }
+
+    /* --------------------------------------------------
+       3. PONG GAME
+    -------------------------------------------------- */
+    let updatePongPaddle = () => {};
+    function startPong() {
+      let paddleHeight = 60, paddleWidth = 10;
+      let playerY = 120, aiY = 120;
+      let ballX = 300, ballY = 150, ballSpeedX = 4, ballSpeedY = 3;
+
+      updatePongPaddle = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        playerY = e.clientY - rect.top - paddleHeight / 2;
+      };
+
+      canvas.addEventListener('mousemove', updatePongPaddle);
+
+      function loop() {
+        ballX += ballSpeedX;
+        ballY += ballSpeedY;
+
+        // Bounce Top/Bottom
+        if (ballY <= 0 || ballY >= canvas.height) ballSpeedY = -ballSpeedY;
+
+        // AI movement
+        if (aiY + paddleHeight / 2 < ballY) aiY += 3;
+        else aiY -= 3;
+
+        // Player Paddle Collision
+        if (ballX <= paddleWidth && ballY > playerY && ballY < playerY + paddleHeight) {
+          ballSpeedX = -ballSpeedX;
+        }
+
+        // AI Paddle Collision
+        if (ballX >= canvas.width - paddleWidth && ballY > aiY && ballY < aiY + paddleHeight) {
+          ballSpeedX = -ballSpeedX;
+        }
+
+        // Reset if score
+        if (ballX < 0 || ballX > canvas.width) {
+          ballX = 300;
+          ballY = 150;
+          ballSpeedX = -ballSpeedX;
+        }
+
+        // Render
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, playerY, paddleWidth, paddleHeight); // Player
+        ctx.fillRect(canvas.width - paddleWidth, aiY, paddleWidth, paddleHeight); // AI
+        ctx.beginPath();
+        ctx.arc(ballX, ballY, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        activeLoop = requestAnimationFrame(loop);
+      }
+      loop();
+    }
+  </script>
+</body>
+</html>
